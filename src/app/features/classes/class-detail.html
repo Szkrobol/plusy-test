@@ -1,0 +1,165 @@
+<div class="flex flex-col gap-6">
+  <a routerLink="/" class="text-sm text-slate-600 hover:text-slate-900">← Strona główna</a>
+
+  @if (loading()) {
+    <div class="flex justify-center py-12">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (loadError() === 'not-found') {
+    <p class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      Nie znaleziono takich zajęć.
+    </p>
+  } @else if (loadError() === 'failed') {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <span>Nie udało się pobrać zajęć.</span>
+      <button mat-stroked-button type="button" (click)="load()">Spróbuj ponownie</button>
+    </div>
+  } @else if (row(); as current) {
+    <header>
+      <div class="flex flex-wrap items-center gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900 first-letter:uppercase">
+          {{ formatDay(current.date) }}
+        </h1>
+        <span
+          class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          [class]="statusChip[current.status]"
+        >
+          {{ statusLabels[current.status] }}
+        </span>
+      </div>
+
+      @if (editable()) {
+        @if (current.status === 'round1_open') {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Zaznacz podpunkty, które chcesz zrobić przy tablicy. Możesz zaznaczyć też całe zadanie.
+            Zmiany zapisują się od razu.
+            @if (current.declarations_deadline) {
+              Zapisy trwają do {{ formatDateTime(current.declarations_deadline) }}.
+            }
+          </p>
+        } @else {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Trwa tura 2. Poniżej są podpunkty, których nikt nie dostał w turze 1. Zaznacz te, które
+            chcesz zrobić. Zmiany zapisują się od razu.
+            @if (current.declarations_deadline) {
+              Zapisy trwają do {{ formatDateTime(current.declarations_deadline) }}.
+            }
+          </p>
+        }
+      } @else {
+        <p class="mt-2 text-sm leading-relaxed text-slate-600">{{ closedMessages[current.status] }}</p>
+      }
+
+      @if (currentRound() !== null) {
+        <p class="mt-2 text-sm font-medium text-slate-900">
+          Zgłoszone: {{ selectedCount() }}
+          {{ plural(selectedCount(), 'podpunkt', 'podpunkty', 'podpunktów') }}
+        </p>
+      }
+
+      @if (current.status !== 'draft' && current.status !== 'round1_open') {
+        <p class="mt-2 text-sm font-medium text-slate-900">
+          @if (myAssigned().length > 0) {
+            Twoje podpunkty: {{ myAssigned().join(', ') }}
+          } @else {
+            Nie przydzielono Ci żadnego podpunktu.
+          }
+        </p>
+        @if (myBackups().length > 0) {
+          <p class="mt-1 text-sm text-slate-700">
+            Zastępujesz (gdyby ktoś nie przyszedł): {{ myBackups().join(', ') }}
+          </p>
+        }
+        <p class="mt-1 text-sm text-slate-500">
+          To propozycja przydziału. Na zajęciach i tak decyduje prowadzący.
+        </p>
+      }
+    </header>
+
+    @if (sets().length === 0) {
+      <p class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+        Do tych zajęć nie przypisano jeszcze zestawów zadań.
+      </p>
+    } @else {
+      <!-- Marking subtasks: all of them in round 1, only the free ones in round 2 -->
+      @if (currentRound() !== null) {
+        @if (declareSets().length === 0) {
+          <p class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+            Wszystkie podpunkty zostały już przydzielone.
+          </p>
+        } @else {
+          @if (hasLocked()) {
+            <p class="text-sm text-slate-500">
+              Przyciemnione podpunkty zgłosiłeś w turze 1. Nadal się liczą, ale nie można ich
+              wycofać.
+            </p>
+          }
+
+          @for (set of declareSets(); track set.id) {
+            <section class="rounded-xl border border-slate-200 bg-white p-4">
+              <h2 class="font-medium text-slate-900">{{ set.name }}</h2>
+
+              <div class="mt-2 divide-y divide-slate-100">
+                @for (task of set.tasks; track task.taskNo) {
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+                    <div class="flex w-full flex-wrap items-center gap-x-3 sm:w-auto sm:min-w-44">
+                      <span class="text-sm font-medium text-slate-900">Zadanie {{ task.taskNo }}</span>
+                      @if (editable() && canToggleTask(task)) {
+                        <button mat-button type="button" (click)="toggleTask(task)">
+                          {{ allSelected(task) ? 'Odznacz całe' : 'Zaznacz całe' }}
+                        </button>
+                      }
+                    </div>
+
+                    <ul class="flex flex-wrap gap-2">
+                      @for (subtask of task.subtasks; track subtask.id) {
+                        <li>
+                          <button
+                            type="button"
+                            [class]="chipBase + ' ' + (isSelected(subtask.id) ? chipSelected : chipIdle)"
+                            [attr.aria-pressed]="isSelected(subtask.id)"
+                            [attr.aria-label]="
+                              'Podpunkt ' + task.taskNo + '.' + subtask.subtaskNo +
+                              (isLocked(subtask.id) ? ', zgłoszony w turze 1' : '')
+                            "
+                            [disabled]="!editable() || isLocked(subtask.id) || isPending(subtask.id)"
+                            (click)="toggleSubtask(subtask.id)"
+                          >
+                            {{ task.taskNo }}.{{ subtask.subtaskNo }}
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        }
+      }
+
+      <!-- Who got what -->
+      @if (current.status !== 'draft' && current.status !== 'round1_open') {
+        <section class="flex flex-col gap-3">
+          <h2 class="font-medium text-slate-900">
+            {{ current.status === 'round2_open' ? 'Przydział z tury 1' : 'Przydział' }}
+          </h2>
+          <app-assignments-view
+            [sets]="sets()"
+            [assignments]="assignmentRows()"
+            [names]="names()"
+            [currentUserId]="currentUserId()"
+          />
+        </section>
+      }
+
+      <!-- Points: after the class took place -->
+      @if (current.status === 'assigned' || current.status === 'finished') {
+        <app-class-points [classId]="current.id" [groupId]="current.group_id" [sets]="sets()" />
+      }
+    }
+  }
+</div>

@@ -1,0 +1,66 @@
+<main class="flex min-h-dvh items-center justify-center bg-slate-50 px-4 py-10">
+  <section class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Dołącz do grupy</h1>
+    <p class="mt-2 text-sm leading-relaxed text-slate-600">
+      Wpisz kod zaproszenia, który dostałeś od administratora swojej grupy.
+    </p>
+    @if (pendingPoints > 0) {
+      <p class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        Po dołączeniu dopiszemy Ci {{ pendingPoints }}
+        {{ plural(pendingPoints, 'plus', 'plusy', 'plusów') }}, które wpisałeś przy rejestracji.
+      </p>
+    }
+
+    <form class="mt-8 flex flex-col" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Kod zaproszenia</mat-label>
+        <input
+          matInput
+          formControlName="code"
+          class="font-mono tracking-wider"
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          placeholder="np. 3f9a1c2b"
+        />
+        @if (form.controls.code.hasError('required')) {
+          <mat-error>Podaj kod zaproszenia.</mat-error>
+        } @else if (form.controls.code.hasError('maxlength')) {
+          <mat-error>Kod jest za długi.</mat-error>
+        }
+      </mat-form-field>
+
+      <!-- Error returned by Supabase -->
+      @if (serverError(); as message) {
+        <div
+          role="alert"
+          class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+        >
+          {{ message }}
+        </div>
+      }
+
+      <button mat-flat-button type="submit" class="w-full" [disabled]="submitting()">
+        @if (submitting()) {
+          <span class="inline-flex items-center gap-2">
+            <mat-spinner diameter="18" />
+            Dołączanie
+          </span>
+        } @else {
+          Dołącz do grupy
+        }
+      </button>
+    </form>
+
+    <p class="mt-6 text-sm text-slate-600">
+      Nie to konto?
+      <button
+        type="button"
+        class="font-medium text-slate-900 underline underline-offset-2"
+        (click)="signOut()"
+      >
+        Wyloguj się
+      </button>
+    </p>
+  </section>
+</main>

@@ -1,0 +1,286 @@
+<div class="flex flex-col gap-6">
+  <a routerLink="/admin/classes" class="text-sm text-slate-600 hover:text-slate-900">
+    ← Zajęcia
+  </a>
+
+  @if (loading()) {
+    <div class="flex justify-center py-12">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (loadError() === 'not-found') {
+    <p class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      Nie znaleziono takich zajęć.
+    </p>
+  } @else if (loadError() === 'failed') {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <span>Nie udało się pobrać zajęć.</span>
+      <button mat-stroked-button type="button" (click)="loadInitial()">Spróbuj ponownie</button>
+    </div>
+  } @else if (row(); as current) {
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900 first-letter:uppercase">
+        {{ formatDay(current.date) }}
+      </h1>
+      <span
+        class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+        [class]="statusChip[current.status]"
+      >
+        {{ statusLabels[current.status] }}
+      </span>
+    </div>
+
+    <!-- Course of the class -->
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 class="font-medium text-slate-900">Przebieg zajęć</h2>
+
+      @switch (current.status) {
+        @case ('draft') {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Zajęcia są szkicem i studenci ich nie widzą. Wybierz zestawy zadań poniżej, a potem
+            otwórz zapisy.
+          </p>
+          <button
+            mat-flat-button
+            type="button"
+            class="mt-3"
+            [disabled]="busy() || selectedSetIds().size === 0"
+            (click)="openRound1()"
+          >
+            Otwórz zapisy (tura 1)
+          </button>
+        }
+
+        @case ('round1_open') {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Trwa tura 1: studenci zaznaczają podpunkty, które chcą zrobić. Gdy zapisy się skończą,
+            uruchom przydział.
+          </p>
+          @if (declarationStats(); as stats) {
+            <p class="mt-2 text-sm text-slate-900">
+              Chętnych: <span class="font-medium">{{ stats.students }}</span> ·
+              zgłoszeń: <span class="font-medium">{{ stats.declarations }}</span> ·
+              podpunktów w zestawach: <span class="font-medium">{{ totalSubtasks() }}</span>
+              @if (expectedLimit(); as limit) {
+                · przewidywany limit: <span class="font-medium">{{ limit }}</span> na osobę
+              }
+            </p>
+            @if (stats.students === 0) {
+              <p class="mt-1 text-sm text-slate-500">Nikt jeszcze się nie zgłosił.</p>
+            }
+          }
+          @if (deadlinePassed()) {
+            <p role="alert" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Termin zapisów minął, więc studenci nie mogą już zmieniać zgłoszeń. Zmień lub wyczyść termin w sekcji „Termin”, jeśli chcesz to zmienić.
+            </p>
+          }
+          <button
+            mat-flat-button
+            type="button"
+            class="mt-3"
+            [disabled]="busy()"
+            (click)="runAssignment(1)"
+          >
+            {{ busy() ? 'Liczenie przydziału…' : 'Uruchom przydział (tura 1)' }}
+          </button>
+        }
+
+        @case ('round2_open') {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Trwa tura 2: wolne podpunkty widzą wszyscy i mogą się do nich dopisywać. Gdy zapisy się
+            skończą, uruchom przydział.
+          </p>
+          <p class="mt-2 text-sm text-slate-900">
+            Wolnych podpunktów: <span class="font-medium">{{ freeCount() }}</span>
+            @if (declarationStats(); as stats) {
+              · dopisało się: <span class="font-medium">{{ stats.students }}</span>
+              {{ plural(stats.students, 'osoba', 'osoby', 'osób') }}
+              ({{ stats.declarations }}
+              {{ plural(stats.declarations, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń') }})
+            }
+          </p>
+          @if (deadlinePassed()) {
+            <p role="alert" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Termin zapisów minął, więc studenci nie mogą się dopisywać. Zmień lub wyczyść termin w sekcji „Termin”, żeby tura 2 mogła ruszyć.
+            </p>
+          }
+          <button
+            mat-flat-button
+            type="button"
+            class="mt-3"
+            [disabled]="busy()"
+            (click)="runAssignment(2)"
+          >
+            {{ busy() ? 'Liczenie przydziału…' : 'Uruchom przydział (tura 2)' }}
+          </button>
+        }
+
+        @case ('assigned') {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Przydział jest gotowy i widoczny dla grupy. Po zajęciach oznacz je jako zakończone.
+          </p>
+          <button
+            mat-flat-button
+            type="button"
+            class="mt-3"
+            [disabled]="busy()"
+            (click)="finish()"
+          >
+            Zakończ zajęcia
+          </button>
+        }
+
+        @case ('finished') {
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">Te zajęcia są zakończone.</p>
+        }
+      }
+
+      @if (resultNote(); as note) {
+        <p role="status" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          {{ note }}
+        </p>
+      }
+    </section>
+
+    <!-- Assignment result -->
+    @if (assignmentRows().length > 0) {
+      <section class="flex flex-col gap-3">
+        <div>
+          <h2 class="font-medium text-slate-900">Wynik przydziału</h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Przydzielono {{ assignedCount() }} z {{ assignmentRows().length }}
+            {{ plural(assignmentRows().length, 'podpunktu', 'podpunktów', 'podpunktów') }}.
+            To propozycja dla grupy, na zajęciach i tak decyduje prowadzący.
+          </p>
+        </div>
+
+        <app-assignments-view
+          [sets]="classSets()"
+          [assignments]="assignmentRows()"
+          [names]="names()"
+          [currentUserId]="currentUserId()"
+        />
+      </section>
+    }
+
+    <!-- Date and deadline -->
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 class="font-medium text-slate-900">Termin</h2>
+
+      <form
+        class="mt-4 flex flex-wrap items-start gap-3"
+        [formGroup]="detailsForm"
+        (ngSubmit)="saveDetails()"
+        novalidate
+      >
+        <mat-form-field appearance="outline" class="w-52" subscriptSizing="dynamic">
+          <mat-label>Data zajęć</mat-label>
+          <input matInput type="date" formControlName="date" />
+          @if (detailsForm.controls.date.hasError('required')) {
+            <mat-error>Podaj datę.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="w-64" subscriptSizing="dynamic">
+          <mat-label>Zamknięcie zapisów (opcjonalnie)</mat-label>
+          <input matInput type="datetime-local" formControlName="deadline" />
+          @if (detailsForm.controls.deadline.hasError('invalid')) {
+            <mat-error>Podaj poprawną datę i godzinę.</mat-error>
+          }
+        </mat-form-field>
+
+        <button
+          mat-stroked-button
+          type="submit"
+          class="mt-2"
+          [disabled]="detailsForm.pristine || busy()"
+        >
+          Zapisz
+        </button>
+      </form>
+      <p class="mt-3 text-sm text-slate-500">
+        Po terminie zamknięcia zapisy w bieżącej turze kończą się automatycznie. Puste pole
+        oznacza brak ograniczenia.
+      </p>
+    </section>
+
+    <!-- Task sets -->
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 class="font-medium text-slate-900">Zestawy zadań</h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Studenci zobaczą wszystkie podpunkty zaznaczonych zestawów.
+      </p>
+
+      @if (availableSets().length === 0) {
+        <p class="mt-4 text-sm text-slate-500">
+          Nie ma jeszcze żadnych zestawów.
+          <a routerLink="/admin/task-sets" class="font-medium text-slate-900 underline underline-offset-2">
+            Dodaj pierwszy
+          </a>
+        </p>
+      } @else {
+        <ul class="mt-3 flex flex-col">
+          @for (set of availableSets(); track set.id) {
+            <li>
+              <mat-checkbox
+                [checked]="isSelected(set.id)"
+                [disabled]="busy()"
+                (change)="toggleSet(set, $event)"
+              >
+                {{ set.name }}
+                <span class="text-sm text-slate-500">
+                  · {{ set.subtaskCount }}
+                  {{ plural(set.subtaskCount, 'podpunkt', 'podpunkty', 'podpunktów') }}
+                </span>
+              </mat-checkbox>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Manual status change -->
+    <details class="rounded-xl border border-slate-200 bg-white p-4">
+      <summary class="cursor-pointer font-medium text-slate-900">
+        Ręczna zmiana statusu (korekty)
+      </summary>
+      <p class="mt-2 text-sm text-slate-600">
+        Na co dzień statusy zmieniają przyciski w sekcji „Przebieg zajęć”. Tu możesz je poprawić,
+        np. wrócić do szkicu. Ręczna zmiana nie uruchamia przydziału i nie czyści jego wyników.
+      </p>
+
+      <div class="mt-4 flex flex-wrap items-start gap-3">
+        <mat-form-field appearance="outline" class="w-56" subscriptSizing="dynamic">
+          <mat-label>Status</mat-label>
+          <mat-select [formControl]="statusControl">
+            @for (status of statuses; track status) {
+              <mat-option [value]="status">{{ statusLabels[status] }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <button
+          mat-stroked-button
+          type="button"
+          class="mt-2"
+          [disabled]="busy() || statusControl.value === current.status"
+          (click)="changeStatus()"
+        >
+          Zmień status
+        </button>
+      </div>
+    </details>
+
+    <!-- Delete -->
+    <section class="rounded-xl border border-red-200 bg-white p-4">
+      <h2 class="font-medium text-slate-900">Usuwanie</h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Usunięcie zajęć kasuje też zgłoszenia i przydziały do nich. Plusy zostają w rankingu.
+      </p>
+      <button mat-stroked-button type="button" class="mt-3" [disabled]="busy()" (click)="remove()">
+        Usuń zajęcia
+      </button>
+    </section>
+  }
+</div>

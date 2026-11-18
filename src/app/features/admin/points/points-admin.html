@@ -1,0 +1,165 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Plusy</h1>
+    <p class="mt-1 text-sm text-slate-600">
+      Wpisz plus z kartki prowadzącego albo popraw pomyłkę. Wpisów nie można edytować ani usuwać,
+      błąd poprawia się wpisem z ujemną wartością.
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="flex justify-center py-12">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (loadFailed()) {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <span>Nie udało się pobrać danych grupy.</span>
+      <button mat-stroked-button type="button" (click)="loadInitial()">Spróbuj ponownie</button>
+    </div>
+  } @else {
+    <!-- New entry -->
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 class="font-medium text-slate-900">Dodaj wpis</h2>
+
+      <form
+        class="mt-4 flex flex-wrap items-start gap-3"
+        [formGroup]="form"
+        (ngSubmit)="submit()"
+        novalidate
+      >
+        <mat-form-field appearance="outline" class="w-64" subscriptSizing="dynamic">
+          <mat-label>Osoba</mat-label>
+          <mat-select formControlName="userId">
+            @for (member of members(); track member.id) {
+              <mat-option [value]="member.id">{{ member.name }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.userId.hasError('required')) {
+            <mat-error>Wybierz osobę.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="w-32" subscriptSizing="dynamic">
+          <mat-label>Wartość</mat-label>
+          <input matInput type="number" [min]="-maxAbsValue" [max]="maxAbsValue" formControlName="value" />
+          @if (form.controls.value.invalid) {
+            <mat-error>Liczba całkowita od −{{ maxAbsValue }} do {{ maxAbsValue }}, bez 0.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="w-64" subscriptSizing="dynamic">
+          <mat-label>Zajęcia (opcjonalnie)</mat-label>
+          <mat-select formControlName="classId">
+            <mat-option [value]="null">Bez zajęć</mat-option>
+            @for (item of classOptions(); track item.id) {
+              <mat-option [value]="item.id">{{ formatDay(item.date) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="w-72" subscriptSizing="dynamic">
+          <mat-label>Podpunkt (opcjonalnie)</mat-label>
+          <mat-select formControlName="subtaskId">
+            <mat-option [value]="null">Bez podpunktu</mat-option>
+            @for (option of subtaskOptions(); track option.id) {
+              <mat-option [value]="option.id">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="min-w-64 flex-1" subscriptSizing="dynamic">
+          <mat-label>Notatka (opcjonalnie)</mat-label>
+          <input matInput formControlName="note" autocomplete="off" />
+          @if (form.controls.note.hasError('maxlength')) {
+            <mat-error>Maksymalnie {{ maxNoteLength }} znaków.</mat-error>
+          }
+        </mat-form-field>
+
+        <button mat-flat-button type="submit" class="mt-2" [disabled]="submitting()">
+          Dodaj wpis
+        </button>
+      </form>
+    </section>
+
+    <!-- History -->
+    <section class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold tracking-tight text-slate-900">Historia wpisów</h2>
+
+        <mat-form-field appearance="outline" class="w-64" subscriptSizing="dynamic">
+          <mat-label>Pokaż wpisy osoby</mat-label>
+          <mat-select [formControl]="filterUser">
+            <mat-option [value]="null">Wszystkie osoby</mat-option>
+            @for (member of members(); track member.id) {
+              <mat-option [value]="member.id">{{ member.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      @if (historyLoading()) {
+        <div class="flex justify-center py-8">
+          <mat-spinner diameter="28" />
+        </div>
+      } @else if (historyFailed()) {
+        <div
+          role="alert"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          <span>Nie udało się pobrać historii.</span>
+          <button mat-stroked-button type="button" (click)="loadHistory(true)">Spróbuj ponownie</button>
+        </div>
+      } @else if (entries().length === 0) {
+        <p class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+          Brak wpisów.
+        </p>
+      } @else {
+        <ul class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+          @for (entry of entries(); track entry.id) {
+            <li class="flex items-start gap-3 px-4 py-3">
+              <span
+                class="mt-0.5 inline-flex min-w-10 justify-center rounded-full px-2.5 py-0.5 text-sm font-semibold tabular-nums"
+                [class]="entry.value > 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'"
+              >
+                {{ valueLabel(entry.value) }}
+              </span>
+
+              <div class="min-w-0 flex-1">
+                <p class="font-medium text-slate-900">{{ nameOf(entry.userId) }}</p>
+                <p class="text-sm text-slate-600">
+                  @if (entry.classDate) {
+                    {{ formatDay(entry.classDate) }}
+                  } @else {
+                    bez zajęć
+                  }
+                  @if (entry.subtaskLabel) {
+                    · podpunkt {{ entry.subtaskLabel }}
+                  }
+                </p>
+                @if (entry.note) {
+                  <p class="mt-0.5 text-sm text-slate-500">{{ entry.note }}</p>
+                }
+              </div>
+
+              <div class="shrink-0 text-right text-xs text-slate-500">
+                <p>{{ formatDateTime(entry.createdAt) }}</p>
+                <p>{{ addedBy(entry) }}</p>
+              </div>
+            </li>
+          }
+        </ul>
+
+        @if (hasMore()) {
+          <div class="flex justify-center">
+            <button mat-stroked-button type="button" [disabled]="loadingMore()" (click)="loadHistory(false)">
+              {{ loadingMore() ? 'Ładowanie…' : 'Pokaż starsze' }}
+            </button>
+          </div>
+        }
+      }
+    </section>
+  }
+</div>

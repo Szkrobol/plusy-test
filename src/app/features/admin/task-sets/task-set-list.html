@@ -1,0 +1,71 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Zestawy zadań</h1>
+    <p class="mt-1 text-sm text-slate-600">
+      Zestawy wpisujesz raz, a potem wskazujesz je przy poszczególnych zajęciach.
+    </p>
+  </div>
+
+  <form
+    class="flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-white p-4"
+    [formGroup]="createForm"
+    (ngSubmit)="create()"
+    novalidate
+  >
+    <mat-form-field appearance="outline" class="min-w-64 flex-1" subscriptSizing="dynamic">
+      <mat-label>Nazwa nowego zestawu</mat-label>
+      <input matInput formControlName="name" autocomplete="off" />
+      @if (createForm.controls.name.hasError('blank')) {
+        <mat-error>Podaj nazwę zestawu.</mat-error>
+      } @else if (createForm.controls.name.hasError('maxlength')) {
+        <mat-error>Maksymalnie {{ maxNameLength }} znaków.</mat-error>
+      }
+    </mat-form-field>
+    <button mat-flat-button type="submit" class="mt-2" [disabled]="creating()">
+      Dodaj zestaw
+    </button>
+  </form>
+
+  @if (loading()) {
+    <div class="flex justify-center py-12">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (loadFailed()) {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <span>Nie udało się pobrać zestawów.</span>
+      <button mat-stroked-button type="button" (click)="load()">Spróbuj ponownie</button>
+    </div>
+  } @else if (items().length === 0) {
+    <p class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      Nie ma jeszcze żadnych zestawów. Dodaj pierwszy powyżej.
+    </p>
+  } @else {
+    <ul class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+      @for (item of items(); track item.id) {
+        <li class="flex items-center justify-between gap-3 px-4 py-3">
+          <a [routerLink]="['/admin/task-sets', item.id]" class="min-w-0 flex-1">
+            <p class="truncate font-medium text-slate-900">{{ item.name }}</p>
+            <p class="text-sm text-slate-500">
+              {{ item.subtaskCount }}
+              {{ plural(item.subtaskCount, 'podpunkt', 'podpunkty', 'podpunktów') }}
+              @if (item.classCount > 0) {
+                · przypisany do zajęć: {{ item.classCount }}
+              }
+            </p>
+          </a>
+          <button
+            mat-icon-button
+            type="button"
+            (click)="remove(item)"
+            [attr.aria-label]="'Usuń zestaw ' + item.name"
+          >
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

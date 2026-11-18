@@ -1,0 +1,21 @@
+.env
+.env.*
+*.pem
+*.key
+.venv/
+__pycache__/
+node_modules/
+*.pyc
+*.log
+
+# Angular (z repo Alana)
+/dist
+/tmp
+/out-tsc
+/.angular/cache
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+__screenshots__/

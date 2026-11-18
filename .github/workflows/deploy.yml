@@ -1,0 +1,69 @@
+# Builds the Angular app and publishes it to GitHub Pages on every push to master.
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a running one is not cancelled halfway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The production configuration swaps environment.ts for environment.production.ts.
+      # A project site lives under /<repository name>/, so the app needs a matching base href.
+      # For a user site (repository named <user>.github.io) use "/" instead.
+      - name: Build
+        run: npx ng build --configuration production --base-href "/${{ github.event.repository.name }}/"
+
+      # GitHub Pages knows nothing about Angular routes. Opening or refreshing e.g. /login would
+      # give a 404, but Pages serves 404.html for unknown paths, so a copy of index.html there
+      # lets the app start and the router show the right page.
+      - name: Prepare site
+        run: |
+          mkdir site
+          cp -r dist/*/browser/. site/
+          cp site/index.html site/404.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

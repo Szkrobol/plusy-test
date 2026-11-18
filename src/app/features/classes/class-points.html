@@ -1,0 +1,60 @@
+<section class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4">
+  <div>
+    <h2 class="font-medium text-slate-900">Plusy za te zajęcia</h2>
+    <p class="mt-1 text-sm leading-relaxed text-slate-600">
+      Dostałeś plusa na zajęciach? Wybierz podpunkt, za który go dostałeś. Może to być także
+      podpunkt, który nie był Ci przydzielony. Wpisu nie możesz cofnąć, a pomyłkę poprawi administrator.
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="flex justify-center py-6">
+      <mat-spinner diameter="28" />
+    </div>
+  } @else if (loadFailed()) {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <span>Nie udało się pobrać Twoich plusów.</span>
+      <button mat-stroked-button type="button" (click)="load()">Spróbuj ponownie</button>
+    </div>
+  } @else {
+    <p class="text-sm font-medium text-slate-900">Dodane za te zajęcia: {{ total() }}</p>
+
+    @for (set of sets(); track set.id) {
+      <div>
+        <h3 class="text-sm font-medium text-slate-500">{{ set.name }}</h3>
+
+        <div class="mt-1 divide-y divide-slate-100">
+          @for (task of set.tasks; track task.taskNo) {
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+              <span class="w-full text-sm font-medium text-slate-900 sm:w-auto sm:min-w-28">
+                Zadanie {{ task.taskNo }}
+              </span>
+
+              <ul class="flex flex-wrap gap-2">
+                @for (subtask of task.subtasks; track subtask.id) {
+                  <li>
+                    <button
+                      type="button"
+                      [class]="chipBase + ' ' + (isAdded(subtask.id) ? chipAdded : chipIdle)"
+                      [disabled]="isAdded(subtask.id) || isPending(subtask.id)"
+                      [attr.aria-label]="
+                        (isAdded(subtask.id) ? 'Plus dodany za podpunkt ' : 'Dodaj plus za podpunkt ') +
+                        task.taskNo + '.' + subtask.subtaskNo
+                      "
+                      (click)="addPoint(task.taskNo, subtask.subtaskNo, subtask.id)"
+                    >
+                      {{ task.taskNo }}.{{ subtask.subtaskNo }}{{ isAdded(subtask.id) ? ' ✓' : '' }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+</section>

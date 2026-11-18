@@ -1,0 +1,70 @@
+<main class="flex min-h-dvh items-center justify-center bg-slate-50 px-4 py-10">
+  <section class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
+      {{ isEditing() ? 'Twój profil' : 'Uzupełnij profil' }}
+    </h1>
+    <p class="mt-2 text-sm leading-relaxed text-slate-600">
+      Imię i nazwisko będą widoczne dla osób z Twojej grupy.
+    </p>
+    <p class="mt-1 text-sm text-slate-500">Konto: {{ session.user()?.email }}</p>
+
+    @if (loading()) {
+      <div class="flex justify-center py-12">
+        <mat-spinner diameter="28" />
+      </div>
+    } @else {
+      <form class="mt-8 flex flex-col" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>Imię</mat-label>
+          <input matInput formControlName="firstName" autocomplete="given-name" />
+          @if (form.controls.firstName.hasError('required')) {
+            <mat-error>Podaj imię.</mat-error>
+          } @else if (form.controls.firstName.hasError('pattern')) {
+            <mat-error>Użyj tylko liter, spacji i myślnika.</mat-error>
+          } @else if (form.controls.firstName.hasError('maxlength')) {
+            <mat-error>Maksymalnie {{ maxNameLength }} znaków.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>Nazwisko</mat-label>
+          <input matInput formControlName="lastName" autocomplete="family-name" />
+          @if (form.controls.lastName.hasError('required')) {
+            <mat-error>Podaj nazwisko.</mat-error>
+          } @else if (form.controls.lastName.hasError('pattern')) {
+            <mat-error>Użyj tylko liter, spacji i myślnika.</mat-error>
+          } @else if (form.controls.lastName.hasError('maxlength')) {
+            <mat-error>Maksymalnie {{ maxNameLength }} znaków.</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Error returned by Supabase -->
+        @if (serverError(); as message) {
+          <div
+            role="alert"
+            class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            {{ message }}
+          </div>
+        }
+
+        <button mat-flat-button type="submit" class="w-full" [disabled]="submitting()">
+          @if (submitting()) {
+            <span class="inline-flex items-center gap-2">
+              <mat-spinner diameter="18" />
+              Zapisywanie
+            </span>
+          } @else {
+            Zapisz
+          }
+        </button>
+      </form>
+
+      @if (isEditing()) {
+        <p class="mt-6 text-sm">
+          <a routerLink="/" class="font-medium text-slate-900 underline underline-offset-2">Wróć</a>
+        </p>
+      }
+    }
+  </section>
+</main>
